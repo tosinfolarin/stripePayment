@@ -34,6 +34,7 @@ interface Booking {
   clientName: string;
   status: 'pending' | 'accepted' | 'rejected';
   paymentStatus: 'unpaid' | 'paid';
+  invoiceUrl?: string; // Optional: will hold the URL for the Stripe invoice
 }
 
 // Start with no initial bookings, properly typed
@@ -44,12 +45,43 @@ export default function TherapistSelectionPage() {
   const [activeTherapistTab, setActiveTherapistTab] = useState(therapists[0].id);
   const [bookings, setBookings] = useState<Booking[]>(initialBookings);
 
-  const handleBookingAction = (bookingId: number, newStatus: 'accepted' | 'rejected') => {
-    setBookings(currentBookings =>
-      currentBookings.map(b =>
-        b.id === bookingId ? { ...b, status: newStatus } : b
-      )
-    );
+  const handleBookingAction = async (bookingId: number, newStatus: 'accepted' | 'rejected') => {
+    if (newStatus === 'accepted') {
+      try {
+        const booking = bookings.find(b => b.id === bookingId);
+        if (!booking) return;
+
+        const response = await fetch('/api/create-invoice', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ therapistId: booking.therapistId }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to create invoice');
+        }
+
+        const { invoiceUrl } = await response.json();
+
+        setBookings(currentBookings =>
+          currentBookings.map(b =>
+            b.id === bookingId ? { ...b, status: 'accepted', invoiceUrl } : b
+          )
+        );
+      } catch (error) {
+        console.error(error);
+        alert('There was an error creating the invoice. Please try again.');
+      }
+    } else {
+      // For 'rejected' status, just update the state directly
+      setBookings(currentBookings =>
+        currentBookings.map(b =>
+          b.id === bookingId ? { ...b, status: 'rejected' } : b
+        )
+      );
+    }
   };
 
   const handleBookAppointment = (therapistId: number) => {
@@ -113,9 +145,9 @@ export default function TherapistSelectionPage() {
                       <p className="font-semibold text-lg">You have a booking with {therapist.name}.</p>
                       <p className="text-gray-600">Status: {booking.status}</p>
                     </div>
-                    {booking.status === 'accepted' && booking.paymentStatus === 'unpaid' && (
-                       <Link href={`/payment?bookingId=${booking.id}&therapistId=${booking.therapistId}`} className="bg-green-500 text-white font-bold py-2 px-4 rounded hover:bg-green-600">
-                        Pay Now
+                    {booking.status === 'accepted' && booking.invoiceUrl && (
+                       <Link href={booking.invoiceUrl} target="_blank" rel="noopener noreferrer" className="bg-green-500 text-white font-bold py-2 px-4 rounded hover:bg-green-600">
+                        Pay Invoice
                       </Link>
                     )}
                      {booking.paymentStatus === 'paid' && (
