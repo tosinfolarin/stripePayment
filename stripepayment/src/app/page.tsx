@@ -147,7 +147,7 @@ export default function TherapistSelectionPage() {
                     </div>
                     {booking.status === 'accepted' && booking.invoiceUrl && (
                        <Link href={booking.invoiceUrl} target="_blank" rel="noopener noreferrer" className="bg-green-500 text-white font-bold py-2 px-4 rounded hover:bg-green-600">
-                        Pay Invoice
+                        Invoice
                       </Link>
                     )}
                      {booking.paymentStatus === 'paid' && (
